@@ -1,6 +1,0 @@
-{
-  "data_root": "dataset/IEMOCAP_full_release/",
-  "target_root": "dataset/MSP_IMPROV_features_2021/target",
-  "total_cv": 12,
-  "feature_root": "dataset/MSP_IMPROV_features_2021"
-}
