@@ -1,0 +1,6 @@
+{
+  "data_root": "dataset/IEMOCAP_raw/",
+  "target_root": "dataset/IEMOCAP_features_2021/target",
+  "total_cv": 10,
+  "feature_root": "dataset/IEMOCAP_features_2021/"
+}
