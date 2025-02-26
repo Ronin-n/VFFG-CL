@@ -14,9 +14,7 @@ pandas 1.4.3
 
 + data
 
-First you should change the data folder path in ```data/config``` and preprocess your data follwing the code in ```preprocess/```.
-
-The preprocess of feature was done handcrafted in several steps, we will make it a automatical running script in the next update. You can download the preprocessed feature to run the code.
+    Prepare dataset features and change the path in ```./data/config```
 
 + For Training VFFG-CL on IEMOCAP:
 
