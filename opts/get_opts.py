@@ -136,7 +136,7 @@ class Options():
 
         # expr setting 
         parser.add_argument('--run_idx', type=str, help='experiment number; for repeat experiment')
-        self.isTrain = False
+        self.isTrain = True
         self.initialized = True
         return parser
 
