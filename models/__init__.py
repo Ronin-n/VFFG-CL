@@ -30,7 +30,7 @@ def find_model_using_name(model_name, curriculum_stg):
     and it is case-insensitive.
     """
     if 'base' in model_name:
-        model_filename = "models.VFFGN_base" + model_name + "_model"
+        model_filename = "models.VFFGN_base." + model_name + "_model"
     elif 'CL' in model_name:
         if curriculum_stg == 'single':
             model_filename = "models.curriculum_learning." + model_name + "_single_model"
