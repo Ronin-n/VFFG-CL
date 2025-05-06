@@ -9,7 +9,7 @@ from models.networks.fc import FcEncoder
 from models.networks.lstm import LSTMEncoder
 from models.networks.textcnn import TextCNN
 from models.networks.classifier import FcClassifier, Fusion
-from models.networks.autoencoder_2 import ResidualAE, multimodal_fusion
+from models.networks.autoencoder_2 import ResidualAE, MultimodalFusion
 from models.utils.config import OptConfig
 from models.RFFP_model import RFFPModel
 from einops import rearrange
@@ -63,7 +63,7 @@ class VFFGNCLbaseModel(BaseModel):
         parser.add_argument('--mse_weight', type=float, default=1.0, help='weight of mse loss')
         parser.add_argument('--cl_weight', type=float, default=1.0, help='weight of cl loss')
         parser.add_argument('--cycle_weight', type=float, default=1.0, help='weight of cycle loss')
-        parser.add_argument('--ist_weight', type=float, default=1.0, help='weight of consistent loss')
+        parser.add_argument('--ist_weight', type=float, default=1.0, help='weight of ist loss')
         parser.add_argument('--share_weight', action='store_true',
                             help='share weight of forward and backward autoencoders')
         parser.add_argument('--image_dir', type=str, default='./consistent_image', help='models image are saved here')
@@ -106,7 +106,7 @@ class VFFGNCLbaseModel(BaseModel):
         self.netC = FcClassifier(cls_input_size, cls_layers, output_dim=opt.output_dim, dropout=opt.dropout_rate,
                                      use_bn=opt.bn).to(self.device)
         # Multimodal fusion module
-        self.netFusion = multimodal_fusion(input_dim=cls_input_size, kernel_size=3).to(self.device)
+        self.netFusion = MultimodalFusion(input_dim=cls_input_size, kernel_size=3).to(self.device)
 
         self.temperature = torch.nn.Parameter(torch.tensor(1.))   
 
@@ -150,7 +150,7 @@ class VFFGNCLbaseModel(BaseModel):
         if not os.path.exists(self.loss_image_save_dir):
             os.makedirs(self.loss_image_save_dir)
 
-    # 加载预训练Encoder，
+    # Load Pre-trained Encoder
     def load_pretrained_encoder(self, opt):
         print('Init parameter from {}'.format(opt.pretrained_path))
         pretrained_path = os.path.join(opt.pretrained_path, str(opt.cvNo))
@@ -164,14 +164,13 @@ class VFFGNCLbaseModel(BaseModel):
         self.pretrained_encoder.eval()
 
 
-    # 初始化Encoder
+    # Initialize Encoder
     def post_process(self):
         # called after model.setup()
         def transform_key_for_parallel(state_dict):
             return OrderedDict([('module.' + key, value) for key, value in state_dict.items()])
 
         if self.isTrain:
-            # 初始化缺失模态编码器和缺失模态不变编码器
             print('[ Init ] Load parameters from pretrained encoder network')
             f = lambda x: transform_key_for_parallel(x)
             self.netA.load_state_dict(f(self.pretrained_encoder.netA.state_dict()))
@@ -188,7 +187,7 @@ class VFFGNCLbaseModel(BaseModel):
         opt.load(opt_content)
         return opt
 
-    # 加载数据集
+    # load dataset
     def set_input(self, input):
         """
         Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -230,7 +229,7 @@ class VFFGNCLbaseModel(BaseModel):
         self.feat_V_miss = self.netV(self.V_miss).to(self.device)  # missing modaltity feature
         self.feat_L_miss = self.netL(self.L_miss) .to(self.device)  # missing modaltity feature
 
-        # fusion miss (h')
+        # fusion miss
         self.feat_fusion = torch.cat([self.feat_A_miss, self.feat_L_miss, self.feat_V_miss], dim=-1).to(self.device)
 
         self.feat_VFF, _ = self.netAE(self.feat_fusion)
