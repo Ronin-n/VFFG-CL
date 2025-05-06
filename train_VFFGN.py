@@ -46,12 +46,12 @@ def process_part(part_names, total_miss_type, total_pred, total_label, save_dir,
         np.save(os.path.join(save_dir, f'{phase}_{part_name}_label.npy'), part_label)
 
         if phase == 'test':
-                recorder_lookup[part_name].write_result_to_tsv({
-                    'acc': acc_part,
-                    'mae': mae_part,
-                    'corr': corr_part,
-                    'f1': f1_part
-                }, cvNo=cvNo, corpus_name=opt.corpus_name)
+            recorder_lookup[part_name].write_result_to_tsv({
+                'acc': acc_part,
+                'uar': uar_part,
+                'macro_f1': macro_f1_part,
+                'weighted_f1': weighted_f1_part
+            }, cvNo=cvNo, corpus_name=opt.corpus_name)
 
 
 def eval(model, val_iter, is_save=False, phase='test', epoch=-1, mode=None):
@@ -92,7 +92,7 @@ def eval(model, val_iter, is_save=False, phase='test', epoch=-1, mode=None):
         np.save(os.path.join(save_dir, '{}_label.npy'.format(phase)), total_label)
 
         # save part results
-        if 'curriculum' in opt.model:
+        if 'CL' in opt.model:
             if opt.curriculum_stg == 'full':
                 process_part(['avl'], total_miss_type, total_pred, total_label, save_dir, phase,
                              recorder_lookup, opt.cvNo)
@@ -119,7 +119,7 @@ def eval(model, val_iter, is_save=False, phase='test', epoch=-1, mode=None):
             np.save(os.path.join(save_dir, '{}_pred.npy'.format(phase)), total_pred)
             np.save(os.path.join(save_dir, '{}_label.npy'.format(phase)), total_label)
 
-            if 'curriculum' in opt.model:
+            if 'CL' in opt.model:
                 if opt.curriculum_stg == 'full':
                     process_part(['avl'], total_miss_type, total_pred, total_label, save_dir, phase,
                                  recorder_lookup, opt.cvNo)
@@ -206,7 +206,7 @@ if __name__ == '__main__':
     opt = Options().parse()  # get training options
     opt.gpu_ids = [int(id) for id in opt.gpu_ids.split(',') if id.strip().isdigit()]
     # set_random_seed(opt.random_seed)    # Setting random seed
-    if 'curriculum' in opt.model:
+    if 'CL' in opt.model:
         logger_path = os.path.join(opt.log_dir, opt.name, opt.curriculum_stg, str(opt.cvNo))  # get logger path
     else:
         logger_path = os.path.join(opt.log_dir, opt.name, str(opt.cvNo))
@@ -214,7 +214,7 @@ if __name__ == '__main__':
         os.makedirs(logger_path)
     print(f"logger save path : {logger_path}")
 
-    if 'curriculum' in opt.model:
+    if 'CL' in opt.model:
         result_dir = os.path.join(opt.log_dir, opt.name, opt.curriculum_stg, 'results')
     else:
         result_dir = os.path.join(opt.log_dir, opt.name, 'results')
@@ -222,7 +222,7 @@ if __name__ == '__main__':
     if not os.path.exists(result_dir):  # make sure result path exists
         os.makedirs(result_dir)
     total_cv = 10 if opt.corpus_name != 'MSP' else 12
-    if 'curriculum' in opt.model:
+    if 'CL' in opt.model:
         if opt.curriculum_stg == 'single':
             recorder_lookup = {  # init result recoreder
                 "total": ResultRecorder(os.path.join(result_dir, 'result_total.tsv'), total_cv=total_cv, corpus_name=opt.corpus_name),
@@ -334,7 +334,7 @@ if __name__ == '__main__':
         model.update_learning_rate(logger)  # update learning rates at the end of every epoch.
 
         # eval
-        if 'curriculum' in opt.model:
+        if 'CL' in opt.model:
             if opt.curriculum_stg in ['single', 'multiple']:
                 acc, uar, macro_f1, weighted_f1 = eval(model, val_dataset, epoch)
                 logger.info('Val result of epoch %d / %d acc %.4f uar %.4f macro_f1 %.4f weighted_f1 %.4f' % (
@@ -348,7 +348,7 @@ if __name__ == '__main__':
 
         # show test result for debugging
         if opt.has_test and opt.verbose:
-            if 'curriculum' in opt.model:
+            if 'CL' in opt.model:
                 if opt.curriculum_stg in ['single', 'multiple']:
                     acc, uar, macro_f1, weighted_f1 = eval(model, tst_dataset, epoch)
                     logger.info(
@@ -406,9 +406,7 @@ if __name__ == '__main__':
             'macro_f1': best_eval_macro_f1,
             'weighted_f1': best_eval_weighted_f1
         }, cvNo=opt.cvNo, corpus_name=opt.corpus_name)
-    if 'curriculum' in opt.model:
+    if 'CL' in opt.model:
         clean_chekpoints(opt.name + '/' + opt.curriculum_stg + '/' + str(opt.cvNo), best_eval_epoch)
     else:
         clean_chekpoints(opt.name + '/' + str(opt.cvNo), best_eval_epoch)
-
-
