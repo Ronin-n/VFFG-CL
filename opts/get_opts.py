@@ -158,7 +158,7 @@ class Options():
         print(f"model name : {model_name}")
         curriculum_stg = opt.curriculum_stg
 
-        if 'curriculum' in model_name:
+        if 'CL' in model_name:
             print(f"curriculum learning strategy : {curriculum_stg}")
             model_option_setter = models.get_option_setter(model_name, curriculum_stg)
         else:
@@ -197,7 +197,7 @@ class Options():
 
         # save to the disk
         model_name = opt.model
-        if 'curriculum' in model_name:
+        if 'CL' in model_name:
             expr_dir = os.path.join(opt.checkpoints_dir, opt.name, opt.curriculum_stg)
         else:
             expr_dir = os.path.join(opt.checkpoints_dir, opt.name)
@@ -218,7 +218,7 @@ class Options():
         for k, v in sorted(vars(opt).items()):
             dictionary[k] = v
         model_name = opt.model
-        if 'curriculum' in model_name:
+        if 'CL' in model_name:
             expr_dir = os.path.join(opt.checkpoints_dir, opt.name, opt.curriculum_stg)
         else:
             expr_dir = os.path.join(opt.checkpoints_dir, opt.name)
