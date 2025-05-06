@@ -89,7 +89,7 @@ class RFFPModel(BaseModel):
         self.netSharedT = SharedEncoder(opt)
 
 
-        # netC分类器
+        # netC Classifier
         self.netC = FcClassifier(cls_input_size, cls_layers, output_dim=opt.output_dim, dropout=opt.dropout_rate,
                                  use_bn=opt.bn)
         self.netC_a = FcClassifier(opt.embd_size_a * int("A" in self.modality), cls_layers, output_dim=opt.output_dim, dropout=opt.dropout_rate,
@@ -106,19 +106,19 @@ class RFFPModel(BaseModel):
         # acoustic model
         if 'A' in self.modality:
             self.model_names.append('A')
-            # 模态特征编码器
+            # Acoustic Modality Feature Encoder
             self.netA = LSTMEncoder(opt.input_dim_a, opt.embd_size_a, embd_method=opt.embd_method_a)
 
         # lexical model
         if 'L' in self.modality:
             self.model_names.append('L')
-            # 模态特征编码器
+            # Lexical Modality Feature Encoder
             self.netL = TextCNN(opt.input_dim_l, opt.embd_size_l)
 
         # visual model
         if 'V' in self.modality:
             self.model_names.append('V')
-            # 模态特征编码器
+            # Visual Modality Feature Encoder
             self.netV = LSTMEncoder(opt.input_dim_v, opt.embd_size_v, opt.embd_method_v)
 
         if self.isTrain:
@@ -154,9 +154,8 @@ class RFFPModel(BaseModel):
 
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>.
-            模态编码器：netA，netL，netV ，编码器后得到的final_embd经过concatenation后送入分类器进行分类
-            不变特征编码器：netConA，netConL，netConV
-            不变特征映射器：netSharedA，netSharedT，netSharedV ，映射到不变空间后进行样本级对比学习
+            Modality feature encoder：netA，netL，netV . The final embedd obtained from the encoder is concatenated and sent to the classifier for classification
+            Feature mapper：netSharedA，netSharedT，netSharedV . Mapping to the contrastive learning space for sample level contrastive learning
         """
         final_embd = []
         final_shared = []
@@ -200,7 +199,7 @@ class RFFPModel(BaseModel):
     def backward(self):
         """Calculate the loss for back propagation"""
 
-        num_batch_texts = 1  # 一次处理一个批次的文本
+        num_batch_texts = 1  
         # get temperature
 
         temp = self.temperature.exp()
@@ -211,15 +210,13 @@ class RFFPModel(BaseModel):
         self.feat_shared_A = rearrange(self.feat_shared_A, '(m b) ... -> m b ...', m=num_batch_texts)
         # print('utt_self-first_feat_shared_V is:', self.feat_shared_V)
 
-        # map 将 l2norm 函数应用于每个输入张量
         self.feat_shared_T, self.feat_shared_V = map(l2norm, (self.feat_shared_T, self.feat_shared_V))
         self.feat_shared_T, self.feat_shared_A = map(l2norm, (self.feat_shared_T, self.feat_shared_A))
         self.feat_shared_V, self.feat_shared_A = map(l2norm, (self.feat_shared_V, self.feat_shared_A))
         # print('utt_self-second_feat_shared_V is:', self.feat_shared_V)
 
-        # 模态之间相似度计算（余弦相似度）, sim(Xi，Yi)
-        self.text_to_image = einsum('m t d, n i d -> m n t i', self.feat_shared_T, self.feat_shared_V) * temp  # einsum 连续求和（爱因斯坦求和）
-        self.image_to_text = rearrange(self.text_to_image, '... t i -> ... i t')  # 交换样本对顺序
+        self.text_to_image = einsum('m t d, n i d -> m n t i', self.feat_shared_T, self.feat_shared_V) * temp  
+        self.image_to_text = rearrange(self.text_to_image, '... t i -> ... i t')  
         # print('utt_self-first_text_to_image is:', self.text_to_image)
 
         self.text_to_audio = einsum('m t d, n i d -> m n t i', self.feat_shared_T, self.feat_shared_A) * temp
@@ -239,19 +236,19 @@ class RFFPModel(BaseModel):
         self.image_to_audio = rearrange(self.image_to_audio, 'm n ... -> (m n) ...')
         self.audio_to_image = rearrange(self.audio_to_image, 'm n ... -> (m n) ...')
 
-        # exponentiate  指数  exp(sim(Xi，Yi))
+        # exponentiate  exp(sim(Xi，Yi))
 
         text_to_image_exp, image_to_text_exp = map(torch.exp, (self.text_to_image, self.image_to_text))
         text_to_audio_exp, audio_to_text_exp = map(torch.exp, (self.text_to_audio, self.audio_to_text))
         image_to_audio_exp, audio_to_image_exp = map(torch.exp, (self.image_to_audio, self.audio_to_image))
 
-        # numerators  分子
+        # numerators  
 
         text_to_image_pos, image_to_text_pos = map(matrix_diag, (text_to_image_exp, image_to_text_exp))
         text_to_audio_pos, audio_to_text_pos = map(matrix_diag, (text_to_audio_exp, audio_to_text_exp))
         image_to_audio_pos, audio_to_image_pos = map(matrix_diag, (image_to_audio_exp, audio_to_image_exp))
 
-        # denominator  分母
+        # denominator  
 
         pos_mask = torch.eye(self.lexical.shape[0], device=self.device, dtype=torch.bool)
         text_to_image_exp, image_to_text_exp = map(lambda t: t.masked_fill(pos_mask, 0.),
@@ -266,7 +263,6 @@ class RFFPModel(BaseModel):
         image_to_audio_denom, audio_to_image_denom = map(lambda t: t.sum(dim=-1),
                                                          (image_to_audio_exp, audio_to_image_exp))
 
-        # 对比学习损失
         text_to_image_loss = -log(text_to_image_pos / (text_to_image_denom + temperature)).mean(dim=-1)
         image_to_text_loss = -log(image_to_text_pos / (image_to_text_denom + temperature)).mean(dim=-1)
 
