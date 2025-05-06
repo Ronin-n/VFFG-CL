@@ -26,7 +26,7 @@ class BaseAutoencoder(nn.Module):
         return reconstructed, latent_vector
 
 
-class ResidualLinear_Conv1D(nn.Module):
+class MultimodalFusion(nn.Module):
     def __init__(self, input_dim, kernel_size, stride=1, padding=1):
         super().__init__()
         self.conv1d = nn.Conv1d(in_channels=input_dim // 4,
@@ -107,75 +107,6 @@ class LSTMAutoencoder(nn.Module):
         return outputs, embd
 
 class ResidualAE(nn.Module):
-    ''' Residual autoencoder using fc layers
-        layers should be something like [128, 64, 32]
-        eg:[128,64,32]-> add: [(input_dim, 128), (128, 64), (64, 32), (32, 64), (64, 128), (128, input_dim)]
-                          concat: [(input_dim, 128), (128, 64), (64, 32), (32, 64), (128, 128), (256, input_dim)]
-    '''
-    def __init__(self, layers, n_blocks, input_dim, dropout=0.5, use_bn=False):
-        super(ResidualAE, self).__init__()
-        self.use_bn = use_bn
-        self.dropout = dropout
-        self.n_blocks = n_blocks
-        self.input_dim = input_dim
-        self.transition = nn.Sequential(
-            nn.Linear(input_dim, input_dim),
-            nn.ReLU(),
-            nn.Linear(input_dim, input_dim)
-        )
-        for i in range(n_blocks):
-            setattr(self, 'encoder_' + str(i), self.get_encoder(layers))
-            setattr(self, 'decoder_' + str(i), self.get_decoder(layers))
-    
-    def get_encoder(self, layers):
-        all_layers = []
-        input_dim = self.input_dim
-        for i in range(0, len(layers)):
-            all_layers.append(nn.Linear(input_dim, layers[i]))
-            all_layers.append(nn.LeakyReLU())
-            if self.use_bn:
-                all_layers.append(nn.BatchNorm1d(layers[i]))
-            if self.dropout > 0:
-                all_layers.append(nn.Dropout(self.dropout))
-            input_dim = layers[i]
-        # delete the activation layer of the last layer
-        decline_num = 1 + int(self.use_bn) + int(self.dropout > 0)
-        all_layers = all_layers[:-decline_num]
-        return nn.Sequential(*all_layers)
-    
-    def get_decoder(self, layers):
-        all_layers = []
-        decoder_layer = copy.deepcopy(layers)
-        decoder_layer.reverse()
-        decoder_layer.append(self.input_dim)
-        for i in range(0, len(decoder_layer)-2):
-            all_layers.append(nn.Linear(decoder_layer[i], decoder_layer[i+1]))
-            all_layers.append(nn.ReLU()) # LeakyReLU
-            if self.use_bn:
-                all_layers.append(nn.BatchNorm1d(decoder_layer[i]))
-            if self.dropout > 0:
-                all_layers.append(nn.Dropout(self.dropout))
-        
-        all_layers.append(nn.Linear(decoder_layer[-2], decoder_layer[-1]))
-        return nn.Sequential(*all_layers)
-
-    
-    def forward(self, x, shared):
-        x_in = shared
-        x_out = x
-        latents = []
-        for i in range(self.n_blocks):
-            encoder = getattr(self, 'encoder_' + str(i))
-            decoder = getattr(self, 'decoder_' + str(i))
-            x_in = x_out + shared # x_out
-            latent = encoder(x_in)
-            x_out = decoder(latent)
-            latents.append(latent)
-        latents = torch.cat(latents, dim=-1)
-        return self.transition(x_in+x_out), latents
-
-
-class ResidualAE_1(nn.Module):
     ''' Residual autoencoder using fc layers
         layers should be something like [128, 64, 32]
         eg:[128,64,32]-> add: [(input_dim, 128), (128, 64), (64, 32), (32, 64), (64, 128), (128, input_dim)]
