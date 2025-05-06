@@ -9,7 +9,7 @@ from models.networks.fc import FcEncoder
 from models.networks.lstm import LSTMEncoder
 from models.networks.textcnn import TextCNN
 from models.networks.classifier import FcClassifier, Fusion
-from models.networks.autoencoder_2 import ResidualAE_1, ResidualLinear_Conv1D
+from models.networks.autoencoder_2 import ResidualAE, MultimodalFusion
 from models.utils.config import OptConfig
 from models.curriculum_learning.VFFGN_CL_multi_model import VFFGNCLmultiModel
 from einops import rearrange
@@ -63,7 +63,7 @@ class VFFGNCLmixModel(BaseModel):
         parser.add_argument('--mse_weight', type=float, default=1.0, help='weight of mse loss')
         parser.add_argument('--cl_weight', type=float, default=1.0, help='weight of cl loss')
         parser.add_argument('--cycle_weight', type=float, default=1.0, help='weight of cycle loss')
-        parser.add_argument('--consistent_weight', type=float, default=1.0, help='weight of consistent loss')
+        parser.add_argument('--ist_weight', type=float, default=1.0, help='weight of Ist loss')
         parser.add_argument('--share_weight', action='store_true',
                             help='share weight of forward and backward autoencoders')
         parser.add_argument('--image_dir', type=str, default='./consistent_image', help='models image are saved here')
@@ -76,14 +76,14 @@ class VFFGNCLmixModel(BaseModel):
             opt (Option class)-- stores all the experiment flags; needs to be a subclass of BaseOptions
         """
         super().__init__(opt)
-        self.loss_names = ['CE', 'cl', 'consistent']
-        self.model_names = ['C', 'AE', 'Linear']  # , 'consistent']  # 六个模块的名称
+        self.loss_names = ['CE', 'CL', 'IST']
+        self.model_names = ['C', 'AE', 'Linear']
 
         # acoustic model
         self.netA = LSTMEncoder(opt.input_dim_a, opt.embd_size_a, embd_method=opt.embd_method_a).to(self.device)
         self.model_names.append('A')
 
-        # lexical model 文本
+        # lexical model
         self.netL = TextCNN(opt.input_dim_l, opt.embd_size_l, dropout=0.5).to(self.device)
         self.model_names.append('L')
 
@@ -91,25 +91,25 @@ class VFFGNCLmixModel(BaseModel):
         self.netV = LSTMEncoder(opt.input_dim_v, opt.embd_size_v, opt.embd_method_v).to(self.device)
         self.model_names.append('V')
 
-        # # AE model  级联残差自编码器
+        # Residual Auto-encoder
         AE_layers = list(map(lambda x: int(x), opt.AE_layers.split(',')))
         AE_input_dim = opt.embd_size_a + \
                        opt.embd_size_v + \
                        opt.embd_size_l
-        self.netAE = ResidualAE_1(AE_layers, opt.n_blocks, AE_input_dim, dropout=0, use_bn=False).to(self.device)
-        # 分类层
+        self.netAE = ResidualAE(AE_layers, opt.n_blocks, AE_input_dim, dropout=0, use_bn=False).to(self.device)
+
+        # Classifier
         cls_layers = list(map(lambda x: int(x), opt.cls_layers.split(',')))
         cls_input_size = opt.embd_size_a + \
                          opt.embd_size_v + \
                          opt.embd_size_l
+        self.netC = FcClassifier(cls_input_size, cls_layers, output_dim=opt.output_dim, dropout=opt.dropout_rate,
+                                 use_bn=opt.bn).to(self.device)
 
-        self.netLinear = ResidualLinear_Conv1D(input_dim=cls_input_size, kernel_size=3).to(self.device)
+        # Multimodal fusion module
+        self.netFusion = MultimodalFusion(input_dim=cls_input_size, kernel_size=3).to(self.device)
 
         self.temperature = torch.nn.Parameter(torch.tensor(1.))
-
-        # 分类器
-        self.netC = FcClassifier(cls_input_size, cls_layers, output_dim=opt.output_dim, dropout=opt.dropout_rate,
-                                     use_bn=opt.bn).to(self.device)
 
         if self.isTrain:
             self.load_pretrained_encoder(opt)
@@ -123,7 +123,7 @@ class VFFGNCLmixModel(BaseModel):
             self.ce_weight = opt.ce_weight
             self.mse_weight = opt.mse_weight
             self.cl_weight = opt.cl_weight
-            self.consistent_weight = opt.consistent_weight
+            self.ist_weight = opt.ist_weight
             self.cycle_weight = opt.cycle_weight
             # L2 regularization
             self.l2_lambda = 1e-5
@@ -151,7 +151,7 @@ class VFFGNCLmixModel(BaseModel):
         if not os.path.exists(self.loss_image_save_dir):
             os.makedirs(self.loss_image_save_dir)
 
-    # 加载预训练Encoder，
+    # Load Pre-trained Encoder
     def load_pretrained_encoder(self, opt):
         pretrained_base_path = os.path.join(opt.checkpoints_dir, opt.name, 'multiple')
         print('Init parameter from {}'.format(pretrained_base_path))
@@ -166,21 +166,20 @@ class VFFGNCLmixModel(BaseModel):
         self.pretrained_encoder.eval()
 
 
-    # 初始化Encoder
+    # Initialize Encoder
     def post_process(self):
         # called after model.setup()
         def transform_key_for_parallel(state_dict):
             return OrderedDict([('module.' + key, value) for key, value in state_dict.items()])
 
         if self.isTrain:
-            # 初始化缺失模态编码器和缺失模态不变编码器
             print('[ Init ] Load parameters from pretrained encoder network')
             f = lambda x: transform_key_for_parallel(x)
             self.netA.load_state_dict(f(self.pretrained_encoder.netA.state_dict()))
             self.netV.load_state_dict(f(self.pretrained_encoder.netV.state_dict()))
             self.netL.load_state_dict(f(self.pretrained_encoder.netL.state_dict()))
 
-            self.netLinear.load_state_dict(f(self.pretrained_encoder.netLinear.state_dict()))
+            self.netFusion.load_state_dict(f(self.pretrained_encoder.netFusion.state_dict()))
 
             self.netC.load_state_dict(f(self.pretrained_encoder.netC.state_dict()))
 
@@ -190,7 +189,7 @@ class VFFGNCLmixModel(BaseModel):
         opt.load(opt_content)
         return opt
 
-    # 加载数据集
+    # load dataset
     def set_input(self, input):
         """
         Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -230,12 +229,11 @@ class VFFGNCLmixModel(BaseModel):
 
         self.feat_A_miss = self.netA(self.A_miss).to(self.device)  # missing modaltity feature
         self.feat_V_miss = self.netV(self.V_miss).to(self.device)  # missing modaltity feature
-        self.feat_L_miss = self.netL(self.L_miss) .to(self.device)  # missing modaltity feature
+        self.feat_L_miss = self.netL(self.L_miss).to(self.device)  # missing modaltity feature
 
-        # fusion miss (h')
+        # fusion miss
         self.feat_fusion = torch.cat([self.feat_A_miss, self.feat_L_miss, self.feat_V_miss], dim=-1).to(self.device)
 
-        # CIF-IM 将缺失模态特征和缺失模态不变特征一起送入残差自动编码器获得想象的缺失模态信息(h' miss)
         self.feat_VFF, _ = self.netAE(self.feat_fusion)
 
         # get fusion outputs for missing modality
@@ -256,10 +254,10 @@ class VFFGNCLmixModel(BaseModel):
                 self.embd_V_real = self.pretrained_encoder.netV(self.visual)
                 self.feat_real = torch.cat([self.embd_A_real, self.embd_L_real, self.embd_V_real], dim=-1)
 
-                self.feat_RFF = self.pretrained_encoder.netLinear(self.feat_real)
+                self.feat_RFF = self.pretrained_encoder.netFusion(self.feat_real)
 
     def backward(self):
-        """Comparative learning with missh"""
+        """Comparative learning"""
         temp = self.temperature.exp()
 
         # Calculate similarity matrix st
@@ -271,7 +269,6 @@ class VFFGNCLmixModel(BaseModel):
         yt_to_vt = F.log_softmax(st / temp, dim=1)
         yvt_to_t = F.log_softmax(st.t() / temp, dim=1)
 
-
         # Ground truth one-hot similarity
         N = x_original.size(0)
         y_true = torch.eye(N, device=x_original.device)
@@ -280,21 +277,21 @@ class VFFGNCLmixModel(BaseModel):
         loss_t_to_vt = F.kl_div(yt_to_vt, y_true, reduction='batchmean')
         loss_vt_to_t = F.kl_div(yvt_to_t, y_true, reduction='batchmean')
 
-        # Total loss with scaling
-        self.loss_cl = self.cl_weight * 0.5*(loss_t_to_vt + loss_vt_to_t)
+        # Similarity alignment loss Lsa
+        self.loss_CL = self.cl_weight * 0.5 * (loss_t_to_vt + loss_vt_to_t)
         # print(f"loss_cl: {self.loss_cl}")
 
         # L2 regularization
         l2_reg = sum(param.pow(2.0).sum() for param in self.l2_params)
 
-        # # forward损失
-        self.loss_consistent = self.consistent_weight * self.criterion_mse(self.feat_real, self.feat_fusion)
+        # Instruction loss
+        self.loss_IST = self.ist_weight * self.criterion_mse(self.feat_real, self.feat_fusion)
 
-        # 分类损失
+        # Classification loss
         self.loss_CE = self.ce_weight * self.criterion_ce(self.logits, self.label)
 
-        # 综合损失
-        loss = self.loss_CE + self.loss_cl + self.loss_consistent
+        # Final loss
+        loss = self.loss_CE + self.loss_CL + self.loss_IST
         loss.backward()
 
         # Clip gradients
