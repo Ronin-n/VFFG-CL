@@ -65,7 +65,7 @@ class MultimodalMissDataset(BaseDataset):
         self.int2name = np.load(int2name_path)
         # make missing index
         if set_name != 'trn':           # val && tst
-            if 'curriculum' in opt.model:
+            if 'CL' in opt.model:
                 if self.curriculum_stg == 'single':
                     self.missing_index = torch.tensor([
                         [1, 1, 0],  # AVZ
@@ -101,7 +101,7 @@ class MultimodalMissDataset(BaseDataset):
                                                   ] * len(self.label)).long()
                 self.miss_type = ['azz', 'zvz', 'zzl', 'avz', 'azl', 'zvl'] * len(self.label)
         else:                           # trn
-            if 'curriculum' in opt.model:
+            if 'CL' in opt.model:
                 if self.curriculum_stg == 'single':
                     self.missing_index = [
                         [1, 1, 0],  # AVZ
@@ -210,26 +210,23 @@ class MultimodalMissDataset(BaseDataset):
     def __len__(self):
         return len(self.missing_index) if self.set_name != 'trn' else len(self.label)
 
-    # 对单个样本特征进行标准化
     def normalize_on_utt(self, features):
-        mean_f = torch.mean(features, dim=0).unsqueeze(0).float()  # 计算特征在每一维度上的均值，并增加一个维度以便于后续操作
-        std_f = torch.std(features, dim=0).unsqueeze(0).float()  # 计算特征在每一维度上的标准差，并增加一个维度
-        std_f[std_f == 0.0] = 1.0  # 将标准差为0的值设置为1，以避免除以零的情况
-        features = (features - mean_f) / std_f  # 对特征进行标准化处理，使其均值为0，标准差为1
+        mean_f = torch.mean(features, dim=0).unsqueeze(0).float() 
+        std_f = torch.std(features, dim=0).unsqueeze(0).float()  
+        std_f[std_f == 0.0] = 1.0  
+        features = (features - mean_f) / std_f 
         return features
 
-    # 使用预先计算好的均值和标准差对特征进行标准化
     def normalize_on_trn(self, features):
         features = (features - self.mean) / self.std
         return features
 
-    # 计算训练数据集中所有样本的总体均值和标准差
     def calc_mean_std(self):
         utt_ids = [utt_id for utt_id in self.all_A.keys()]
-        feats = np.array([self.all_A[utt_id] for utt_id in utt_ids])  # 将所有样本的特征转化为一个大的NumPy数组
-        _feats = feats.reshape(-1, feats.shape[2])  # 将特征数组重新形状，以便计算每一维度的均值和标准差
-        mean = np.mean(_feats, axis=0)  # 计算每一维度的均值
-        std = np.std(_feats, axis=0)  # 计算每一维度的标准差
+        feats = np.array([self.all_A[utt_id] for utt_id in utt_ids]) 
+        _feats = feats.reshape(-1, feats.shape[2])  
+        mean = np.mean(_feats, axis=0) 
+        std = np.std(_feats, axis=0)  
         std[std == 0.0] = 1.0
         return mean, std
 
@@ -255,43 +252,4 @@ class MultimodalMissDataset(BaseDataset):
             'missing_index': missing_index,
             'miss_type': miss_type
         }
-
-if __name__ == '__main__':
-    class test:
-        cvNo = 1
-        A_type = "comparE"
-        V_type = "denseface"
-        L_type = "bert_large"
-        norm_method = 'trn'
-
-    
-    opt = test()
-    print('Reading from dataset:')
-    a = MultimodalMissDataset(opt, set_name='trn')
-    print()
-    data = next(iter(a))
-    for k, v in data.items():
-        if k not in ['int2name', 'label']:
-            print(k, v.shape, torch.sum(v))
-        else:
-            print(k, v)
-    print('Reading from dataloader:')
-    x = [a[i] for i in range(128)]
-    print('each one:')
-    for i, _x in enumerate(x):
-        print(_x['missing_index'], _x['miss_type'])
-    for i, _x in enumerate(x):
-        print(i, ':')
-        for k, v in _x.items():
-            if k not in ['int2name', 'label', 'missing_index']:
-                print(k, v.shape, torch.sum(v))
-            else:
-                print(k, v)
-    print('packed output')
-    x = a.collate_fn(x)
-    for k, v in x.items():
-        if k not in ['int2name', 'label', 'miss_type']:
-            print(k, v.shape, torch.sum(v))
-        else:
-            print(k, v)
     
