@@ -9,7 +9,7 @@ from models.networks.fc import FcEncoder
 from models.networks.lstm import LSTMEncoder
 from models.networks.textcnn import TextCNN
 from models.networks.classifier import FcClassifier, Fusion
-from models.networks.autoencoder_2 import ResidualAE, multimodal_fusion
+from models.networks.autoencoder_2 import ResidualAE, MultimodalFusion
 from models.utils.config import OptConfig
 from models.RFFP_model import RFFPModel
 from einops import rearrange
@@ -83,7 +83,7 @@ class VFFGNCLsingleModel(BaseModel):
         self.netA = LSTMEncoder(opt.input_dim_a, opt.embd_size_a, embd_method=opt.embd_method_a).to(self.device)
         self.model_names.append('A')
 
-        # lexical model 
+        # lexical model
         self.netL = TextCNN(opt.input_dim_l, opt.embd_size_l, dropout=0.5).to(self.device)
         self.model_names.append('L')
 
@@ -97,7 +97,7 @@ class VFFGNCLsingleModel(BaseModel):
                        opt.embd_size_v + \
                        opt.embd_size_l
         self.netAE = ResidualAE(AE_layers, opt.n_blocks, AE_input_dim, dropout=0, use_bn=False).to(self.device)
-        
+
         # Classifier
         cls_layers = list(map(lambda x: int(x), opt.cls_layers.split(',')))
         cls_input_size = opt.embd_size_a + \
@@ -105,9 +105,9 @@ class VFFGNCLsingleModel(BaseModel):
                          opt.embd_size_l
         self.netC = FcClassifier(cls_input_size, cls_layers, output_dim=opt.output_dim, dropout=opt.dropout_rate,
                                  use_bn=opt.bn).to(self.device)
-        
+
         # Multimodal fusion module
-        self.netFusion = multimodal_fusion(input_dim=cls_input_size, kernel_size=3).to(self.device)
+        self.netFusion = MultimodalFusion(input_dim=cls_input_size, kernel_size=3).to(self.device)
 
         self.temperature = torch.nn.Parameter(torch.tensor(1.))
 
@@ -138,7 +138,6 @@ class VFFGNCLsingleModel(BaseModel):
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
 
-
         image_save_dir = os.path.join(opt.image_dir, opt.name)
         image_save_dir = os.path.join(image_save_dir, str(opt.cvNo))
         self.predict_image_save_dir = os.path.join(image_save_dir, 'predict')
@@ -163,7 +162,6 @@ class VFFGNCLsingleModel(BaseModel):
         self.pretrained_encoder.load_networks_cv(pretrained_path)
         self.pretrained_encoder.cuda()
         self.pretrained_encoder.eval()
-
 
     # Initialize Encoder
     def post_process(self):
@@ -222,13 +220,12 @@ class VFFGNCLsingleModel(BaseModel):
             self.V_miss = visual
             self.L_miss = lexical
 
-
     def forward(self):
         """Run forward pass; called by both functions <optimize_parameters> and <test>."""
 
         self.feat_A_miss = self.netA(self.A_miss).to(self.device)  # missing modaltity feature
         self.feat_V_miss = self.netV(self.V_miss).to(self.device)  # missing modaltity feature
-        self.feat_L_miss = self.netL(self.L_miss) .to(self.device)  # missing modaltity feature
+        self.feat_L_miss = self.netL(self.L_miss).to(self.device)  # missing modaltity feature
 
         # fusion miss
         self.feat_fusion = torch.cat([self.feat_A_miss, self.feat_L_miss, self.feat_V_miss], dim=-1).to(self.device)
