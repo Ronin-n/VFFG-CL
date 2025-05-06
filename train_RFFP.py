@@ -110,7 +110,6 @@ def multiclass_acc(preds, truths):
 
 if __name__ == '__main__':
     opt = Options().parse()  # get training options
-    # 转换gpu_ids为整数列表
     opt.gpu_ids = [int(id) for id in opt.gpu_ids.split(',') if id.strip().isdigit()]
     logger_path = os.path.join(opt.log_dir, opt.name, str(opt.cvNo))  # get logger path
     if not os.path.exists(logger_path):  # make sure logger path exists
