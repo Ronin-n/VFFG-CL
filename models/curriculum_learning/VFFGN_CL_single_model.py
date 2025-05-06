@@ -63,7 +63,7 @@ class VFFGNCLsingleModel(BaseModel):
         parser.add_argument('--mse_weight', type=float, default=1.0, help='weight of mse loss')
         parser.add_argument('--cl_weight', type=float, default=1.0, help='weight of cl loss')
         parser.add_argument('--cycle_weight', type=float, default=1.0, help='weight of cycle loss')
-        parser.add_argument('--ist_weight', type=float, default=1.0, help='weight of consistent loss')
+        parser.add_argument('--ist_weight', type=float, default=1.0, help='weight of ist loss')
         parser.add_argument('--share_weight', action='store_true',
                             help='share weight of forward and backward autoencoders')
         parser.add_argument('--image_dir', type=str, default='./consistent_image', help='models image are saved here')
@@ -151,7 +151,7 @@ class VFFGNCLsingleModel(BaseModel):
         if not os.path.exists(self.loss_image_save_dir):
             os.makedirs(self.loss_image_save_dir)
 
-    # 加载预训练Encoder，
+    # Load Pre-trained Encoder
     def load_pretrained_encoder(self, opt):
         print('Init parameter from {}'.format(opt.pretrained_path))
         pretrained_path = os.path.join(opt.pretrained_path, str(opt.cvNo))
@@ -165,14 +165,13 @@ class VFFGNCLsingleModel(BaseModel):
         self.pretrained_encoder.eval()
 
 
-    # 初始化Encoder
+    # Initialize Encoder
     def post_process(self):
         # called after model.setup()
         def transform_key_for_parallel(state_dict):
             return OrderedDict([('module.' + key, value) for key, value in state_dict.items()])
 
         if self.isTrain:
-            # 初始化缺失模态编码器和缺失模态不变编码器
             print('[ Init ] Load parameters from pretrained encoder network')
             f = lambda x: transform_key_for_parallel(x)
             self.netA.load_state_dict(f(self.pretrained_encoder.netA.state_dict()))
