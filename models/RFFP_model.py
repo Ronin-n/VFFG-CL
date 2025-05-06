@@ -8,7 +8,7 @@ from models.networks.lstm import LSTMEncoder
 from models.networks.textcnn import TextCNN
 from models.networks.classifier import FcClassifier, Fusion
 from models.networks.shared import SharedEncoder
-from models.networks.autoencoder_2 import ResidualLinear_Conv1D
+from models.networks.autoencoder_2 import MultimodalFusion
 from models.utils import CMD
 from einops import rearrange, repeat, reduce
 from torch import einsum
@@ -79,7 +79,7 @@ class RFFPModel(BaseModel):
         super().__init__(opt)
         self.loss_names = ['TA', 'TV', 'VA', 'CE']
         self.modality = opt.modality
-        self.model_names = ['SharedA', 'SharedV', 'SharedT', "C", "Linear"]
+        self.model_names = ['SharedA', 'SharedV', 'SharedT', "C", "Fusion"]
         cls_layers = list(map(lambda x: int(x), opt.cls_layers.split(',')))
         cls_input_size = opt.embd_size_a * int("A" in self.modality) + \
                          opt.embd_size_v * int("V" in self.modality) + \
@@ -99,7 +99,7 @@ class RFFPModel(BaseModel):
         self.netC_l = FcClassifier(opt.embd_size_l * int("L" in self.modality), cls_layers, output_dim=opt.output_dim, dropout=opt.dropout_rate,
                                  use_bn=opt.bn).to(self.device)
 
-        self.netLinear = ResidualLinear_Conv1D(input_dim=cls_input_size, kernel_size=3)
+        self.netFusion = MultimodalFusion(input_dim=cls_input_size, kernel_size=3)
         self.temperature = torch.nn.Parameter(torch.tensor(1.))
         self.batch_size = opt.batch_size
 
@@ -180,7 +180,7 @@ class RFFPModel(BaseModel):
 
         # get model outputs
         self.feat = torch.cat(final_embd, dim=-1)
-        feat_RFF = self.netLinear(self.feat)
+        feat_RFF = self.netFusion(self.feat)
         # print(f"self.feat shape: {self.feat.shape}")
         # print('output feat is:', self.feat)
 
