@@ -6,7 +6,6 @@ import data
 import json
 
 
-# MISA中的函数
 def str2bool(v):
     """string to boolean"""
     if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -22,7 +21,6 @@ class Options():
 
     It also implements several helper functions such as parsing, printing, and saving the options.
     It also gathers additional options defined in <modify_commandline_options> functions in both dataset class and model class.
-    这部分参数来源于两部分：initialize中定义的，以及脚本文件中预先设置的
     """
 
     def __init__(self):
@@ -89,7 +87,6 @@ class Options():
         parser.add_argument('--lr_decay_iters', type=int, default=50,
                             help='multiply by a gamma every lr_decay_iters iterations')
 
-        # MISA的参数
         # Mode
         parser.add_argument('--mode', type=str, default='train')  # 模式，默认为训练模式
         parser.add_argument('--runs', type=int, default=5)  # 轮数，默认为5轮
@@ -237,16 +234,6 @@ class Options():
             print("Expr Name:", opt.name)
 
         self.print_options(opt)
-
-        # # set gpu ids
-        # str_ids = opt.gpu_ids.split(',')
-        # opt.gpu_ids = []
-        # for str_id in str_ids:
-        #     id = int(str_id)
-        #     if id >= 0:
-        #         opt.gpu_ids.append(id)
-        # if len(opt.gpu_ids) > 0:
-        #     torch.cuda.set_device(opt.gpu_ids[0])
 
         if opt.isTrain:
             self.save_json(opt)
