@@ -93,10 +93,7 @@ def eval(model, val_iter, is_save=False, phase='test', epoch=-1, mode=None):
 
         # save part results
         if 'CL' in opt.model:
-            if opt.curriculum_stg == 'full':
-                process_part(['avl'], total_miss_type, total_pred, total_label, save_dir, phase,
-                             recorder_lookup, opt.cvNo)
-            elif opt.curriculum_stg == 'single':
+            if opt.curriculum_stg == 'single':
                 process_part(['avz', 'azl', 'zvl'], total_miss_type, total_pred, total_label, save_dir, phase,
                              recorder_lookup, opt.cvNo)
             elif opt.curriculum_stg == 'multiple':
@@ -120,10 +117,7 @@ def eval(model, val_iter, is_save=False, phase='test', epoch=-1, mode=None):
             np.save(os.path.join(save_dir, '{}_label.npy'.format(phase)), total_label)
 
             if 'CL' in opt.model:
-                if opt.curriculum_stg == 'full':
-                    process_part(['avl'], total_miss_type, total_pred, total_label, save_dir, phase,
-                                 recorder_lookup, opt.cvNo)
-                elif opt.curriculum_stg == 'single':
+                if opt.curriculum_stg == 'single':
                     process_part(['avz', 'azl', 'zvl'], total_miss_type, total_pred, total_label, save_dir, phase,
                                  recorder_lookup, opt.cvNo)
                 elif opt.curriculum_stg == 'multiple':
@@ -334,13 +328,7 @@ if __name__ == '__main__':
         model.update_learning_rate(logger)  # update learning rates at the end of every epoch.
 
         # eval
-        if 'CL' in opt.model:
-            if opt.curriculum_stg in ['single', 'multiple']:
-                acc, uar, macro_f1, weighted_f1 = eval(model, val_dataset, epoch)
-                logger.info('Val result of epoch %d / %d acc %.4f uar %.4f macro_f1 %.4f weighted_f1 %.4f' % (
-                    epoch, opt.niter + opt.niter_decay, acc, uar, macro_f1, weighted_f1))
-            else:
-                acc, uar, macro_f1, weighted_f1 = eval(model, val_dataset, epoch)
+        acc, uar, macro_f1, weighted_f1 = eval(model, val_dataset, epoch)
                 logger.info('Val result of epoch %d / %d acc %.4f uar %.4f macro_f1 %.4f weighted_f1 %.4f' % (
                     epoch, opt.niter + opt.niter_decay, acc, uar, macro_f1, weighted_f1))
 
@@ -348,22 +336,15 @@ if __name__ == '__main__':
 
         # show test result for debugging
         if opt.has_test and opt.verbose:
-            if 'CL' in opt.model:
-                if opt.curriculum_stg in ['single', 'multiple']:
-                    acc, uar, macro_f1, weighted_f1 = eval(model, tst_dataset, epoch)
+            acc, uar, macro_f1, weighted_f1 = eval(model, tst_dataset, epoch)
                     logger.info(
                         'Tst result of epoch %d / %d acc %.4f uar %.4f macro_f1 %.4f weighted_f1 %.4f' % (
                             epoch, opt.niter + opt.niter_decay, acc, uar, macro_f1, weighted_f1))
-                else:
-                    acc, uar, macro_f1, weighted_f1 = eval(model, tst_dataset, epoch)
-                    logger.info(
-                        'Tst result of epoch %d / %d acc %.4f uar %.4f macro_f1 %.4f weighted_f1 %.4f' % (
-                            epoch, opt.niter + opt.niter_decay, acc, uar, macro_f1, weighted_f1))
-
+                    
             # logger.info('\n{}'.format(cm))
 
         # record epoch with best result
-        if opt.corpus_name == 'IEMOCAP':
+        if opt.corpus_name == 'IEMOCAP' or 'MSP':
             if uar > best_eval_uar:
                 best_eval_epoch = epoch
                 best_eval_uar = uar
@@ -372,17 +353,8 @@ if __name__ == '__main__':
                 best_eval_weighted_f1 = weighted_f1
             select_metric = 'uar'
             best_metric = best_eval_uar
-        elif opt.corpus_name == 'MSP':
-            if macro_f1 > best_eval_macro_f1:
-                best_eval_epoch = epoch
-                best_eval_uar = uar
-                best_eval_acc = acc
-                best_eval_macro_f1 = macro_f1
-                best_eval_weighted_f1 = weighted_f1
-            select_metric = 'macro_f1'
-            best_metric = best_eval_macro_f1
         else:
-            raise ValueError(f'corpus name must be IEMOCAP, CMU-MOSI, or MSP, but got {opt.corpus_name}')
+            raise ValueError(f'corpus name must be IEMOCAP or MSP, but got {opt.corpus_name}')
 
     logger.info('Best eval epoch %d found with %s %f' % (best_eval_epoch, select_metric, best_metric))
     # test
