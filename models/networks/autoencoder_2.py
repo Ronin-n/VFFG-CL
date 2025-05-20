@@ -114,7 +114,7 @@ class ResidualAE(nn.Module):
     '''
 
     def __init__(self, layers, n_blocks, input_dim, dropout=0.5, use_bn=False):
-        super(ResidualAE_1, self).__init__()
+        super(ResidualAE, self).__init__()
         self.use_bn = use_bn
         self.dropout = dropout
         self.n_blocks = n_blocks
