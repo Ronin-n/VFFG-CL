@@ -77,7 +77,7 @@ class VFFGNCLbaseModel(BaseModel):
         """
         super().__init__(opt)
         self.loss_names = ['CE', 'CL', 'IST']
-        self.model_names = ['C', 'AE', 'Linear']
+        self.model_names = ['C', 'AE', 'Fusion']
 
         # acoustic model
         self.netA = LSTMEncoder(opt.input_dim_a, opt.embd_size_a, embd_method=opt.embd_method_a).to(self.device)
