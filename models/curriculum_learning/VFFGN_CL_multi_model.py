@@ -60,7 +60,6 @@ class VFFGNCLmultiModel(BaseModel):
         parser.add_argument('--pretrained_consistent_path', type=str,
                             help='where to load pretrained consistent encoder network')
         parser.add_argument('--ce_weight', type=float, default=1.0, help='weight of ce loss')
-        parser.add_argument('--mse_weight', type=float, default=1.0, help='weight of mse loss')
         parser.add_argument('--cl_weight', type=float, default=1.0, help='weight of cl loss')
         parser.add_argument('--cycle_weight', type=float, default=1.0, help='weight of cycle loss')
         parser.add_argument('--ist_weight', type=float, default=1.0, help='weight of Ist loss')
