@@ -329,17 +329,17 @@ if __name__ == '__main__':
 
         # eval
         acc, uar, macro_f1, weighted_f1 = eval(model, val_dataset, epoch)
-                logger.info('Val result of epoch %d / %d acc %.4f uar %.4f macro_f1 %.4f weighted_f1 %.4f' % (
-                    epoch, opt.niter + opt.niter_decay, acc, uar, macro_f1, weighted_f1))
+        logger.info('Val result of epoch %d / %d acc %.4f uar %.4f macro_f1 %.4f weighted_f1 %.4f' % (
+            epoch, opt.niter + opt.niter_decay, acc, uar, macro_f1, weighted_f1))
 
         # logger.info('\n{}'.format(cm))
 
         # show test result for debugging
         if opt.has_test and opt.verbose:
             acc, uar, macro_f1, weighted_f1 = eval(model, tst_dataset, epoch)
-                    logger.info(
-                        'Tst result of epoch %d / %d acc %.4f uar %.4f macro_f1 %.4f weighted_f1 %.4f' % (
-                            epoch, opt.niter + opt.niter_decay, acc, uar, macro_f1, weighted_f1))
+            logger.info(
+                'Tst result of epoch %d / %d acc %.4f uar %.4f macro_f1 %.4f weighted_f1 %.4f' % (
+                    epoch, opt.niter + opt.niter_decay, acc, uar, macro_f1, weighted_f1))
                     
             # logger.info('\n{}'.format(cm))
 
