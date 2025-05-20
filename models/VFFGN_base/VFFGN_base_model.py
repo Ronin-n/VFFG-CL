@@ -61,10 +61,7 @@ class VFFGNCLbaseModel(BaseModel):
                             help='where to load pretrained consistent encoder network')
         parser.add_argument('--ce_weight', type=float, default=1.0, help='weight of ce loss')
         parser.add_argument('--cl_weight', type=float, default=1.0, help='weight of cl loss')
-        parser.add_argument('--cycle_weight', type=float, default=1.0, help='weight of cycle loss')
         parser.add_argument('--ist_weight', type=float, default=1.0, help='weight of ist loss')
-        parser.add_argument('--share_weight', action='store_true',
-                            help='share weight of forward and backward autoencoders')
         parser.add_argument('--image_dir', type=str, default='./consistent_image', help='models image are saved here')
 
         return parser
@@ -119,10 +116,8 @@ class VFFGNCLbaseModel(BaseModel):
             self.optimizers.append(self.optimizer)
             self.output_dim = opt.output_dim
             self.ce_weight = opt.ce_weight
-            self.mse_weight = opt.mse_weight
             self.cl_weight = opt.cl_weight
             self.ist_weight = opt.ist_weight
-            self.cycle_weight = opt.cycle_weight
             # L2 regularization
             self.l2_lambda = 1e-5
             self.l2_params = list(
