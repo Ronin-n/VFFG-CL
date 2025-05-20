@@ -36,7 +36,7 @@ def l2norm(t):
     return F.normalize(t, dim=-1)
 
 
-class VFFGNCLbaseModel(BaseModel):
+class VFFGNbaseModel(BaseModel):
     @staticmethod
     def modify_commandline_options(parser, is_train=True):
         parser.add_argument('--input_dim_a', type=int, default=130, help='acoustic input dim')
@@ -126,7 +126,7 @@ class VFFGNCLbaseModel(BaseModel):
             self.load_pretrained_encoder(opt)
 
         # modify save_dir
-        self.save_dir = os.path.join(self.save_dir, opt.curriculum_stg, str(opt.cvNo))
+        self.save_dir = os.path.join(self.save_dir, str(opt.cvNo))
         print(f"checkpoints save path : {self.save_dir}")
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
